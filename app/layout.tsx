@@ -15,9 +15,27 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "Retailor — Tailor your resume to the exact job",
+  title: {
+    default: "Retailor | Tailor your resume to the exact job",
+    template: "%s | Retailor",
+  },
   description:
-    "Retailor reads a specific job description and re-frames your resume to match it — honestly, ATS-safe, in minutes.",
+    "Tailor one resume to one job description with an editable, ATS-friendly draft. Review every change before you download.",
+  applicationName: "Retailor",
+  keywords: ["resume tailoring", "resume editor", "job application", "ATS resume"],
+  openGraph: {
+    title: "Retailor | Tailor your resume to the exact job",
+    description:
+      "Tailor one resume to one job description with an editable, ATS-friendly draft.",
+    siteName: "Retailor",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "Retailor | Tailor your resume to the exact job",
+    description:
+      "Tailor one resume to one job description with an editable, ATS-friendly draft.",
+  },
   icons: {
     icon: "/icon.svg",
   },
