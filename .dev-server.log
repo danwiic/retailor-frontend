@@ -1,0 +1,136 @@
+
+> retailor-frontend@0.1.0 dev
+> next dev
+
+▲ Next.js 16.3.4 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.1.10:3000
+✓ Ready in 717ms
+✓ Running next.config.ts took 52ms
+
+ GET / 200 in 2.2s (next.js: 2.0s, application-code: 155ms)
+ GET / 200 in 60ms (next.js: 15ms, application-code: 45ms)
+[browser] Uncaught Error: Hydration failed because the server rendered text didn't match the client. As a result this tree will be regenerated on the client. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <LoadingBoundary name="/" loading={null}>
+      <HTTPAccessFallbackBoundary notFound={{...}} forbidden={undefined} unauthorized={undefined}>
+        <HTTPAccessFallbackErrorBoundary pathname="/" notFound={{...}} forbidden={undefined} unauthorized={undefined} ...>
+          <RedirectBoundary>
+            <RedirectErrorBoundary router={{...}}>
+              <InnerLayoutRouter url="/#how" tree={[...]} params={{}} cacheNode={{rsc:{...}, ...}} segmentPath={[...]} ...>
+                <SegmentViewNode type="page" pagePath="page.tsx">
+                  <SegmentTrieNode>
+                  <Home>
+                    <Retailor>
+                      <div className="flex min-h...">
+                        <header className="mx-auto fl...">
+                          <Wordmark>
+                          <nav aria-label="Primary">
+                            <a>
+                            <span className="usage" title="Free allow...">
+                              <span aria-hidden={true} className="usage__dots">
+                                <span
++                                 className="usage__dot usage__dot--on"
+-                                 className={"usage__dot "}
+                                >
+                                <span
++                                 className="usage__dot usage__dot--on"
+-                                 className={"usage__dot "}
+                                >
+                                <span
++                                 className="usage__dot usage__dot--on"
+-                                 className={"usage__dot "}
+                                >
+                              <span className="mono-num">
+                                <span>
++                               3
+-                               0
+                                ...
+                        ...
+                ...
+              ...
+
+    at span (unknown)
+    at Retailor (components/retailor.tsx:389:13)
+    at Home (app\page.tsx:4:10)
+  387 |               ))}
+  388 |             </span>
+> 389 |             <span className="mono-num">
+      |             ^
+  390 |               <span className="sr-only">Free tailorings used this browser: </span>
+  391 |               {shownUsed} of {USED_LIMIT}
+  392 |             </span>
+ GET / 200 in 40ms (next.js: 5ms, application-code: 34ms)
+[browser] Uncaught Error: Hydration failed because the server rendered text didn't match the client. As a result this tree will be regenerated on the client. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <LoadingBoundary name="/" loading={null}>
+      <HTTPAccessFallbackBoundary notFound={{...}} forbidden={undefined} unauthorized={undefined}>
+        <HTTPAccessFallbackErrorBoundary pathname="/" notFound={{...}} forbidden={undefined} unauthorized={undefined} ...>
+          <RedirectBoundary>
+            <RedirectErrorBoundary router={{...}}>
+              <InnerLayoutRouter url="/#how" tree={[...]} params={{}} cacheNode={{rsc:{...}, ...}} segmentPath={[...]} ...>
+                <SegmentViewNode type="page" pagePath="page.tsx">
+                  <SegmentTrieNode>
+                  <Home>
+                    <Retailor>
+                      <div className="flex min-h...">
+                        <header className="mx-auto fl...">
+                          <Wordmark>
+                          <nav aria-label="Primary">
+                            <a>
+                            <span className="usage" title="Free allow...">
+                              <span aria-hidden={true} className="usage__dots">
+                                <span
++                                 className="usage__dot usage__dot--on"
+-                                 className={"usage__dot "}
+                                >
+                                <span
++                                 className="usage__dot usage__dot--on"
+-                                 className={"usage__dot "}
+                                >
+                                <span
++                                 className="usage__dot usage__dot--on"
+-                                 className={"usage__dot "}
+                                >
+                              <span className="mono-num">
+                                <span>
++                               3
+-                               0
+                                ...
+                        ...
+                ...
+              ...
+
+    at span (unknown)
+    at Retailor (components/retailor.tsx:389:13)
+    at Home (app\page.tsx:4:10)
+  387 |               ))}
+  388 |             </span>
+> 389 |             <span className="mono-num">
+      |             ^
+  390 |               <span className="sr-only">Free tailorings used this browser: </span>
+  391 |               {shownUsed} of {USED_LIMIT}
+  392 |             </span>
+[?25h
