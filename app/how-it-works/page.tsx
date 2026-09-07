@@ -1,7 +1,17 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { Navbar } from "@/components/navbar";
 
-export const metadata = { title: "How Retailor works" };
+export const metadata: Metadata = {
+  title: "How it works",
+  description:
+    "See how Retailor parses, reviews, and tailors one resume to one exact job description.",
+  openGraph: {
+    title: "How Retailor works",
+    description:
+      "See how Retailor parses, reviews, and tailors one resume to one exact job description.",
+  },
+};
 
 const steps = [
   ["01", "Bring your resume", "Upload a PDF or DOCX. Retailor extracts the structure, but does not treat the first pass as final."],

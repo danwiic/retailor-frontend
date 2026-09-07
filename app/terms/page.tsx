@@ -1,7 +1,13 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { Navbar } from "@/components/navbar";
 
-export const metadata = { title: "Terms of Use | Retailor" };
+export const metadata: Metadata = {
+  title: "Terms of Use",
+  description:
+    "Read the terms for using Retailor as an assistive resume-tailoring and document-drafting tool.",
+  robots: { index: true, follow: true },
+};
 
 export default function Terms() {
   return <div className="info-page"><Navbar /><main className="legal-main"><span className="eyebrow">Terms</span><h1>Terms of Use</h1><p className="legal-lede">By using Retailor, you agree to use it as an assistive drafting tool and to review its output before submitting an application.</p><LegalSection title="Use of the service"><p>You may use Retailor to upload your own resume, analyze a job description, and create a tailored draft for a legitimate job application. Do not upload content you do not have permission to process.</p></LegalSection><LegalSection title="AI output is a draft"><p>Retailor may misunderstand, omit, or awkwardly rephrase information. You are responsible for reviewing the parsed resume, parsed job requirements, tailored resume, and final DOCX. Retailor must not be used to invent or misrepresent qualifications.</p></LegalSection><LegalSection title="Availability and limits"><p>The service may be unavailable, rate-limited, changed, or discontinued. Usage limits are controlled by the backend and may change. Temporary download links can expire.</p></LegalSection><LegalSection title="No employment guarantee"><p>Retailor does not provide recruiting, legal, employment, or career-placement advice and makes no promise about interviews, offers, or hiring outcomes.</p></LegalSection><LegalSection title="Your content and privacy"><p>You retain responsibility for the content you upload and paste. Processing details, external LLM use, temporary export storage, and browser device identifiers are described in the <Link href="/privacy">Privacy Policy</Link>.</p></LegalSection><LegalSection title="Contact"><p>For questions about these terms, contact the project owner through <a href="https://danpirante.dev" target="_blank" rel="noreferrer">danpirante.dev</a>.</p></LegalSection><p className="legal-foot">Last updated: September 2026</p><Link href="/" className="btn btn--ghost">Back to Retailor</Link></main></div>;
