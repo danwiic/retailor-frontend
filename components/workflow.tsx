@@ -437,7 +437,9 @@ export function Workflow() {
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [hydrated, setHydrated] = useState(false)
+  const [jdAnalyzed, setJdAnalyzed] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
+  const jdResultsRef = useRef<HTMLDivElement>(null)
   const restored = useRef(false)
   useEffect(() => {
     const restore = window.setTimeout(() => {
@@ -448,6 +450,7 @@ export function Workflow() {
           setStep(saved.step ?? 'upload')
           setResume(normalizeResume(saved.resume))
           setJd(normalizeJd(saved.jd))
+          setJdAnalyzed(Boolean(saved.jdAnalyzed))
           setJdText(saved.jdText ?? '')
         }
       } catch {
@@ -464,7 +467,7 @@ export function Workflow() {
   useEffect(() => {
     if (!restored.current) return
     try {
-      sessionStorage.setItem('retailor.workflow', JSON.stringify({ step, resume, jd, jdText }))
+      sessionStorage.setItem('retailor.workflow', JSON.stringify({ step, resume, jd, jdAnalyzed, jdText }))
     } catch {
       /* storage may be unavailable */
     }
@@ -508,7 +511,10 @@ export function Workflow() {
       return
     }
     setJd(normalizeJd(result.value))
-    setStep('job')
+    setJdAnalyzed(true)
+    window.setTimeout(() => {
+      jdResultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }, 0)
   }
   async function runTailor() {
     setError('')
@@ -677,15 +683,15 @@ export function Workflow() {
                   <ArrowRightIcon width={16} height={16} />
                 </button>
               </section>
-              {jd.title && (
-                <>
+              {jdAnalyzed && (
+                <div ref={jdResultsRef} className="job-results">
                   <JobEditor jd={jd} onChange={setJd} />
                   <Actions
                     back={() => setStep('resume')}
                     next={() => setStep('tailor')}
                     label="Review and tailor"
                   />
-                </>
+                </div>
               )}
             </>
           )}
@@ -751,6 +757,7 @@ export function Workflow() {
                     setFile(null)
                     setResume(emptyResume())
                     setJd(emptyJd())
+                    setJdAnalyzed(false)
                     setJdText('')
                     setTailored(null)
                     setDownloadUrl('')

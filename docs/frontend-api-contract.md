@@ -5,11 +5,20 @@ When the backend changes, update this document with the implementation.
 
 ## Base URL
 
-Use an environment variable in the frontend:
+Use a server-side environment variable for the frontend proxy:
 
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:8000
+RETAILOR_API_BASE=http://localhost:8000
 ```
+
+Production frontend deployments should set:
+
+```env
+RETAILOR_API_BASE=https://api.retailor.danpirante.dev
+```
+
+The browser calls the same-origin Next.js `/api/*` routes; the route handlers
+call this backend origin server-side.
 
 Production should point to the deployed API origin, not the frontend origin.
 

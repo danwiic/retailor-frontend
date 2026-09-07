@@ -5,6 +5,12 @@ export class ApiTimeoutError extends Error {
   }
 }
 
+const DIRECT_API_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/+$/, "");
+
+function apiPath(proxyPath: string, backendPath: string) {
+  return DIRECT_API_BASE ? `${DIRECT_API_BASE}${backendPath}` : proxyPath;
+}
+
 export function getDeviceId(): string {
   if (typeof window === "undefined") return "";
   let id: string | null = null;
@@ -13,7 +19,7 @@ export function getDeviceId(): string {
   } catch {
     /* storage may be unavailable; fall through */
   }
-  if (!id) {
+  if (!id || !/^[A-Za-z0-9_-]{1,128}$/.test(id)) {
     id =
       (typeof crypto !== "undefined" && crypto.randomUUID
         ? crypto.randomUUID()
@@ -74,7 +80,7 @@ export async function parseResume(
   const form = new FormData();
   form.append("file", file);
   return request(
-    "/api/parse",
+    apiPath("/api/parse", "/parse"),
     { method: "POST", headers: { "x-device-id": getDeviceId() }, body: form },
     { ...opts, timeoutMs: 60_000 }
   );
@@ -85,7 +91,7 @@ export async function analyzeJd(
   opts: RequestOptions = {}
 ): Promise<{ data: unknown; status: number }> {
   return request(
-    "/api/analyze-jd",
+    apiPath("/api/analyze-jd", "/analyze-jd"),
     {
       method: "POST",
       headers: { "content-type": "application/json", "x-device-id": getDeviceId() },
@@ -101,7 +107,7 @@ export async function tailor(
   opts: RequestOptions = {}
 ): Promise<{ data: unknown; status: number }> {
   return request(
-    "/api/tailor",
+    apiPath("/api/tailor", "/tailor"),
     {
       method: "POST",
       headers: {

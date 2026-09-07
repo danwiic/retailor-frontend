@@ -806,6 +806,7 @@ a {
 .repeatable__head { display: flex; justify-content: space-between; align-items: center; font-size: .82rem; }
 .job-source { display: grid; gap: 18px; margin-bottom: 24px; }
 .job-source .textarea { min-height: 260px; }
+.job-results { margin-top: 28px; scroll-margin-top: 96px; }
 .actions { display: flex; justify-content: space-between; gap: 12px; margin-top: 24px; }
 .tailor-panel { padding: clamp(28px, 5vw, 56px); }
 .tailor-panel h3 { margin-top: 12px; font-family: var(--font-space); font-size: 1.7rem; }

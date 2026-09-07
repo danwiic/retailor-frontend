@@ -1,4 +1,4 @@
-const BASE = process.env.RETAILOR_API_BASE ?? "http://localhost:8000";
+const BASE = (process.env.RETAILOR_API_BASE ?? "http://localhost:8000").replace(/\/+$/, "");
 
 export async function POST(request: Request) {
   let body: unknown;

@@ -77,6 +77,18 @@ Default:
 RETAILOR_API_BASE=http://localhost:8000
 ```
 
+For the deployed Vercel project, set this server-side environment variable in
+Vercel under **Project Settings → Environment Variables**:
+
+```env
+RETAILOR_API_BASE=https://api.retailor.danpirante.dev
+```
+
+Apply it to the environments where the frontend is deployed, then redeploy so
+the Next.js route handlers pick up the value. Do not use `NEXT_PUBLIC_API_URL`
+for this integration. The browser calls the same-origin `/api/*` routes, and
+those server-side handlers call the AWS API origin.
+
 This is intentionally not a `NEXT_PUBLIC_*` variable because the backend
 origin is used by server-side route handlers.
 
