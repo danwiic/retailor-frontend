@@ -1,13 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import {
-  analyzeJd,
-  asResult,
-  parseResume,
-  tailor,
-  type ExportFormat,
-} from '@/lib/api'
+import { analyzeJd, asResult, parseResume, tailor, type ExportFormat } from '@/lib/api'
 import {
   emptyJd,
   emptyResume,
@@ -26,6 +20,7 @@ import {
   RefreshIcon,
   UploadIcon,
 } from './icons'
+import { SiteFooter, SiteLinks } from './footer'
 import { Navbar } from './navbar'
 
 type Step = 'upload' | 'resume' | 'job' | 'tailor' | 'result'
@@ -63,7 +58,8 @@ function toFlowError(status: number, detail: string): FlowError {
     return {
       kind: 'provider',
       title: 'Retailor is busy right now',
-      detail: 'The service did not finish. Wait a moment and try again — your progress is saved here.',
+      detail:
+        'The service did not finish. Wait a moment and try again — your progress is saved here.',
     }
   return {
     kind: 'invalid',
@@ -156,33 +152,68 @@ function ListField({
   onChange: (values: string[]) => void
   placeholder: string
 }) {
+  const [collapsed, setCollapsed] = useState(false)
+  const filled = values.filter(Boolean)
+  const summary = filled.join(' · ') || 'Nothing added yet'
   return (
-    <div className="field">
-      <div className="field__label-row">
-        <span className="field__label">{label}</span>
-        <button className="text-button" type="button" onClick={() => onChange([...values, ''])}>
-          + Add
-        </button>
-      </div>
-      {values.map((value, index) => (
-        <div className="list-row" key={`${label}-${index}`}>
-          <input
-            className="input"
-            aria-label={`${label} ${index + 1}`}
-            placeholder={placeholder}
-            value={value}
-            onChange={e => onChange(values.map((item, i) => (i === index ? e.target.value : item)))}
-          />
+    <div className={`field ${collapsed ? 'is-collapsed' : ''}`}>
+      <div className="field__label-row" onClick={() => setCollapsed(open => !open)}>
+        <span className="field__label-row-main">
           <button
-            className="icon-button"
+            className="repeatable__chevron"
             type="button"
-            aria-label={`Remove ${label} ${index + 1}`}
-            onClick={() => onChange(values.filter((_, i) => i !== index))}
+            aria-label={`${collapsed ? 'Expand' : 'Collapse'} ${label}`}
+            aria-expanded={!collapsed}
+            onClick={e => {
+              e.stopPropagation()
+              setCollapsed(open => !open)
+            }}
           >
-            ×
+            <ChevronDownIcon width={14} height={14} />
+          </button>
+          <span className="field__label">{label}</span>
+        </span>
+        <div
+          className="field__label-actions"
+          onClick={e => {
+            e.stopPropagation()
+          }}
+        >
+          {filled.length > 0 && (
+            <span className="field__count">
+              {filled.length} {filled.length === 1 ? 'item' : 'items'}
+            </span>
+          )}
+          <button className="text-button" type="button" onClick={() => onChange([...values, ''])}>
+            + Add
           </button>
         </div>
-      ))}
+      </div>
+      {collapsed ? (
+        <p className="repeatable__summary list-field__summary">{summary}</p>
+      ) : (
+        values.map((value, index) => (
+          <div className="list-row" key={`${label}-${index}`}>
+            <input
+              className="input"
+              aria-label={`${label} ${index + 1}`}
+              placeholder={placeholder}
+              value={value}
+              onChange={e =>
+                onChange(values.map((item, i) => (i === index ? e.target.value : item)))
+              }
+            />
+            <button
+              className="icon-button"
+              type="button"
+              aria-label={`Remove ${label} ${index + 1}`}
+              onClick={() => onChange(values.filter((_, i) => i !== index))}
+            >
+              ×
+            </button>
+          </div>
+        ))
+      )}
     </div>
   )
 }
@@ -196,58 +227,111 @@ function Repeatable({
   values: ResumeSection[]
   onChange: (values: ResumeSection[]) => void
 }) {
+  const [collapsed, setCollapsed] = useState<Set<number>>(() => new Set())
   const update = (index: number, key: string, value: string) =>
     onChange(values.map((item, i) => (i === index ? { ...item, [key]: value } : item)))
+  const toggle = (index: number) =>
+    setCollapsed(prev => {
+      const next = new Set(prev)
+      if (next.has(index)) next.delete(index)
+      else next.add(index)
+      return next
+    })
+  const allCollapsed = values.length > 0 && values.every((_, i) => collapsed.has(i))
+  const setAll = (collapse: boolean) =>
+    setCollapsed(new Set(collapse ? values.map((_, i) => i) : []))
+  const summarize = (item: ResumeSection, index: number) => {
+    const title = String(item.title ?? item.name ?? item.degree ?? '').trim()
+    const company = String(item.company ?? item.school ?? '').trim()
+    const dates = String(item.years ?? item.dates ?? '').trim()
+    return [title, company, dates].filter(Boolean).join(' · ') || `${label} ${index + 1}`
+  }
   return (
     <div className="field">
       <div className="field__label-row">
         <span className="field__label">{label}</span>
-        <button className="text-button" type="button" onClick={() => onChange([...values, {}])}>
-          + Add
-        </button>
-      </div>
-      {values.map((item, index) => (
-        <div className="repeatable" key={`${label}-${index}`}>
-          <div className="repeatable__head">
-            <strong>
-              {label} {index + 1}
-            </strong>
-            <button
-              className="text-button text-button--danger"
-              type="button"
-              onClick={() => onChange(values.filter((_, i) => i !== index))}
-            >
-              Remove
+        <div className="field__label-actions">
+          {values.length > 0 && (
+            <button className="text-button" type="button" onClick={() => setAll(!allCollapsed)}>
+              {allCollapsed ? 'Expand all' : 'Collapse all'}
             </button>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field
-              label="Title / degree"
-              value={String(item.title ?? item.degree ?? '')}
-              onChange={v => update(index, 'title', v)}
-            />
-            <Field
-              label="Company / school"
-              value={String(item.company ?? item.school ?? '')}
-              onChange={v => update(index, 'company', v)}
-            />
-            <Field
-              label="Dates"
-              value={String(item.years ?? item.dates ?? '')}
-              onChange={v => update(index, 'years', v)}
-            />
-          </div>
-          <Field
-            label="Details"
-            multiline
-            value={String(
-              item.description ?? (Array.isArray(item.bullets) ? item.bullets.join('\n') : '')
-            )}
-            onChange={v => update(index, 'description', v)}
-            hint="One accomplishment per line"
-          />
+          )}
+          <button className="text-button" type="button" onClick={() => onChange([...values, {}])}>
+            + Add
+          </button>
         </div>
-      ))}
+      </div>
+      {values.map((item, index) => {
+        const isCollapsed = collapsed.has(index)
+        return (
+          <div
+            className={`repeatable ${isCollapsed ? 'is-collapsed' : ''}`}
+            key={`${label}-${index}`}
+          >
+            <div className="repeatable__head" onClick={() => toggle(index)}>
+              <span className="repeatable__head-title">
+                <button
+                  className="repeatable__chevron"
+                  type="button"
+                  aria-label={`${isCollapsed ? 'Expand' : 'Collapse'} ${label} ${index + 1}`}
+                  aria-expanded={!isCollapsed}
+                  onClick={e => {
+                    e.stopPropagation()
+                    toggle(index)
+                  }}
+                >
+                  <ChevronDownIcon width={14} height={14} />
+                </button>
+                <strong>
+                  {label} {index + 1}
+                </strong>
+              </span>
+              <button
+                className="text-button text-button--danger"
+                type="button"
+                onClick={e => {
+                  e.stopPropagation()
+                  onChange(values.filter((_, i) => i !== index))
+                }}
+              >
+                Remove
+              </button>
+            </div>
+            {isCollapsed ? (
+              <p className="repeatable__summary">{summarize(item, index)}</p>
+            ) : (
+              <>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Field
+                    label="Title / degree"
+                    value={String(item.title ?? item.name ?? item.degree ?? '')}
+                    onChange={v => update(index, 'title', v)}
+                  />
+                  <Field
+                    label="Company / school"
+                    value={String(item.company ?? item.school ?? '')}
+                    onChange={v => update(index, 'company', v)}
+                  />
+                  <Field
+                    label="Dates"
+                    value={String(item.years ?? item.dates ?? '')}
+                    onChange={v => update(index, 'years', v)}
+                  />
+                </div>
+                <Field
+                  label="Details"
+                  multiline
+                  value={String(
+                    item.description ?? (Array.isArray(item.bullets) ? item.bullets.join('\n') : '')
+                  )}
+                  onChange={v => update(index, 'description', v)}
+                  hint="One accomplishment per line"
+                />
+              </>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -462,7 +546,9 @@ function Document({
           <p>{resume.summary || 'No summary provided.'}</p>
         )}
       </div>
-      <div className={`document__section ${marked('experience') ? 'document__section--changed' : ''}`}>
+      <div
+        className={`document__section ${marked('experience') ? 'document__section--changed' : ''}`}
+      >
         <h3>
           Experience
           {marked('experience') && <span className="doc-chip">Changed</span>}
@@ -601,6 +687,27 @@ export function Workflow() {
     setCanRetry(false)
     setError(null)
   }
+  function resetAll() {
+    setStep('upload')
+    setFileName(null)
+    setResume(emptyResume())
+    setJd(emptyJd())
+    setJdAnalyzed(false)
+    setJdText('')
+    setTailored(null)
+    setDownloadUrl('')
+    setExportFormat('docx')
+    setDownloadFormat(null)
+    setMenuOpen(false)
+    clearError()
+    setBusy(null)
+    if (inputRef.current) inputRef.current.value = ''
+    try {
+      sessionStorage.removeItem('retailor.workflow')
+    } catch {
+      /* storage may be unavailable */
+    }
+  }
   function cancelRun() {
     abortRef.current?.abort()
     abortRef.current = null
@@ -653,7 +760,9 @@ export function Workflow() {
           setTailored(saved.tailored ? normalizeResume(saved.tailored) : null)
           setDownloadUrl(typeof saved.downloadUrl === 'string' ? saved.downloadUrl : '')
           setExportFormat(saved.exportFormat === 'pdf' ? 'pdf' : 'docx')
-          setDownloadFormat(saved.downloadFormat === 'pdf' ? 'pdf' : saved.downloadFormat === 'docx' ? 'docx' : null)
+          setDownloadFormat(
+            saved.downloadFormat === 'pdf' ? 'pdf' : saved.downloadFormat === 'docx' ? 'docx' : null
+          )
           setFileName(typeof saved.fileName === 'string' ? saved.fileName : null)
         }
       } catch {
@@ -700,7 +809,18 @@ export function Workflow() {
     } catch {
       /* storage may be unavailable */
     }
-  }, [step, resume, jd, jdAnalyzed, jdText, tailored, downloadUrl, exportFormat, downloadFormat, fileName])
+  }, [
+    step,
+    resume,
+    jd,
+    jdAnalyzed,
+    jdText,
+    tailored,
+    downloadUrl,
+    exportFormat,
+    downloadFormat,
+    fileName,
+  ])
   useEffect(() => {
     if (!menuOpen) return
     const closeOnOutsideClick = (event: PointerEvent) => {
@@ -812,8 +932,7 @@ export function Workflow() {
       setDownloadFormat(value.download_format === 'pdf' ? 'pdf' : 'docx')
       setExportFormat(format)
       setStep('result')
-      const generatedUrl =
-        typeof value.download_url === 'string' ? value.download_url : ''
+      const generatedUrl = typeof value.download_url === 'string' ? value.download_url : ''
       if (pendingDownloadRef.current === format && generatedUrl) {
         pendingDownloadRef.current = null
         openDownload(generatedUrl, format)
@@ -841,7 +960,7 @@ export function Workflow() {
             : 'Review the changes before you download.'
   return (
     <div className="workspace">
-      <Navbar />
+      <Navbar tagline={step === 'upload'} onReset={resetAll} />
       <div className="workspace__body">
         <aside className="rail" aria-label="Workflow">
           <div className="rail__intro">
@@ -867,9 +986,14 @@ export function Workflow() {
               </button>
             ))}
           </nav>
-          <p className="privacy-note">
-            Your resume and job description stay in this session. We do not use them for analytics.
-          </p>
+          <div className="rail__footer">
+            <nav className="rail-footer__links" aria-label="Footer">
+              <SiteLinks />
+            </nav>
+            <p className="privacy-note">
+              Your resume and job description stay in this session. We do not use them for analytics.
+            </p>
+          </div>
         </aside>
         <main className="workspace__main">
           <div className="mobile-progress">
@@ -907,251 +1031,244 @@ export function Workflow() {
                     : ''}
           </p>
           <div aria-busy={busy !== null}>
-          {error && (
-            <ErrorBanner
-              error={error}
-              onRetry={canRetry ? () => retryRef.current?.() : undefined}
-              onDismiss={clearError}
-            />
-          )}
-          {step === 'upload' && (
-            <section className="upload-panel">
-              <div className="upload-copy">
-                <span className="upload-mark">
-                  <UploadIcon width={22} height={22} />
-                </span>
-                <div>
-                  <h3>Upload your resume</h3>
-                  <p>
-                    PDF or DOCX, up to 5 MB. We’ll extract the structure so you can review it first.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                className="dropzone dropzone--large"
-                disabled={busy !== null}
-                aria-busy={busy === 'parse'}
-                onClick={() => inputRef.current?.click()}
-                onDragOver={e => {
-                  if (!busy) e.preventDefault()
-                }}
-                onDrop={e => {
-                  e.preventDefault()
-                  if (!busy) {
-                    const f = e.dataTransfer.files[0]
-                    if (f) void upload(f)
-                  }
-                }}
-              >
-                <input
-                  ref={inputRef}
-                  hidden
-                  type="file"
-                  accept=".pdf,.docx"
-                  disabled={busy !== null}
-                  onChange={e => {
-                    const f = e.target.files?.[0]
-                    if (f) void upload(f)
-                  }}
-                />
-                <strong>
-                  {busy === 'parse' ? 'Reading your resume…' : 'Drop it here or browse'}
-                </strong>
-                <span>PDF or DOCX · 5 MB maximum</span>
-              </button>
-              {busy === 'parse' && (
-                <button type="button" className="btn btn--quiet" onClick={cancelRun}>
-                  Cancel reading
-                </button>
-              )}
-              <p className="privacy-inline">
-                You will review every extracted field before it is used.
-              </p>
-            </section>
-          )}
-          {step === 'resume' && (
-            <>
-              <ResumeEditor resume={resume} onChange={setResume} />
-              <Actions
-                back={() => setStep('upload')}
-                next={() => setStep('job')}
-                label="Continue to job"
+            {error && (
+              <ErrorBanner
+                error={error}
+                onRetry={canRetry ? () => retryRef.current?.() : undefined}
+                onDismiss={clearError}
               />
-            </>
-          )}
-          {step === 'job' && (
-            <>
-              <section className="job-source">
-                <Field
-                  label="Original job description"
-                  multiline
-                  value={jdText}
-                  onChange={setJdText}
-                  hint={`${jdText.length.toLocaleString()} / 6,000 characters`}
+            )}
+            {step === 'upload' && (
+              <div className="upload-scene">
+                <div className="upload-scene__ambient" aria-hidden>
+                  <span className="orb orb--1" />
+                  <span className="orb orb--2" />
+                  <span className="orb orb--3" />
+                </div>
+                <section className="upload-panel">
+                  <div className="upload-copy">
+                    <span className="upload-mark">
+                      <UploadIcon width={22} height={22} />
+                    </span>
+                    <div>
+                      <h3>Upload your resume</h3>
+                      <p>
+                        PDF or DOCX, up to 5 MB. We’ll extract the structure so you can review it
+                        first.
+                      </p>
+                    </div>
+                  </div>
+                  {busy === 'parse' ? (
+                    <div className="dropzone dropzone--large dropzone--busy" aria-busy="true">
+                      <strong>Reading your resume…</strong>
+                      <span>This can take a few seconds while the structure is extracted.</span>
+                      <button
+                        type="button"
+                        className="btn btn--ghost"
+                        onClick={cancelRun}
+                      >
+                        Cancel reading
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="dropzone dropzone--large"
+                      onClick={() => inputRef.current?.click()}
+                      onDragOver={e => {
+                        e.preventDefault()
+                      }}
+                      onDrop={e => {
+                        e.preventDefault()
+                        const f = e.dataTransfer.files[0]
+                        if (f) void upload(f)
+                      }}
+                    >
+                      <input
+                        ref={inputRef}
+                        hidden
+                        type="file"
+                        accept=".pdf,.docx"
+                        onChange={e => {
+                          const f = e.target.files?.[0]
+                          if (f) void upload(f)
+                        }}
+                      />
+                      <strong>Drop it here or browse</strong>
+                      <span>PDF or DOCX · 5 MB maximum</span>
+                    </button>
+                  )}
+                  <p className="privacy-inline">
+                    You will review every extracted field before it is used.
+                  </p>
+                </section>
+              </div>
+            )}
+            {step === 'resume' && (
+              <>
+                <ResumeEditor resume={resume} onChange={setResume} />
+                <Actions
+                  back={() => setStep('upload')}
+                  next={() => setStep('job')}
+                  label="Continue to job"
                 />
-                <div className="job-actions">
-                  <button
-                    className="btn btn--primary"
-                    type="button"
-                    disabled={busy === 'analyze' || !jdText.trim()}
-                    onClick={() => void analyze()}
-                  >
-                    {busy === 'analyze' ? 'Analyzing…' : 'Analyze posting'}
-                    <ArrowRightIcon width={16} height={16} />
-                  </button>
-                  {busy === 'analyze' && (
+              </>
+            )}
+            {step === 'job' && (
+              <>
+                <section className="job-source">
+                  <Field
+                    label="Original job description"
+                    multiline
+                    value={jdText}
+                    onChange={setJdText}
+                    hint={`${jdText.length.toLocaleString()} / 6,000 characters`}
+                  />
+                  <div className="job-actions">
+                    <button
+                      className="btn btn--primary"
+                      type="button"
+                      disabled={busy === 'analyze' || !jdText.trim()}
+                      onClick={() => void analyze()}
+                    >
+                      {busy === 'analyze' ? 'Analyzing…' : 'Analyze posting'}
+                      <ArrowRightIcon width={16} height={16} />
+                    </button>
+                    {busy === 'analyze' && (
+                      <button type="button" className="btn btn--ghost" onClick={cancelRun}>
+                        Cancel
+                      </button>
+                    )}
+                  </div>
+                </section>
+                {jdAnalyzed && (
+                  <div ref={jdResultsRef} className="job-results">
+                    <JobEditor jd={jd} onChange={setJd} />
+                    <Actions
+                      back={() => setStep('resume')}
+                      next={() => setStep('tailor')}
+                      label="Review and tailor"
+                    />
+                  </div>
+                )}
+              </>
+            )}
+            {step === 'tailor' && (
+              <section className="tailor-panel">
+                <span className="eyebrow">Ready to run</span>
+                <h3>{jd.title || 'This application'}</h3>
+                <p>
+                  Retailor will use your reviewed resume and reviewed requirements. It will not
+                  invent experience or qualifications.
+                </p>
+                <div className="tailor-summary">
+                  <span>
+                    <strong>{resume.name || 'Your resume'}</strong> reviewed
+                  </span>
+                  <span>
+                    <strong>{jd.requirements.length + jd.responsibilities.length}</strong> role
+                    details
+                  </span>
+                </div>
+                <div className="tailor-actions">
+                  <Actions
+                    back={() => setStep('job')}
+                    next={() => void runTailor()}
+                    label={busy === 'tailor' ? 'Tailoring…' : 'Start tailoring'}
+                    disabled={busy === 'tailor'}
+                  />
+                  {busy === 'tailor' && (
                     <button type="button" className="btn btn--ghost" onClick={cancelRun}>
                       Cancel
                     </button>
                   )}
                 </div>
               </section>
-              {jdAnalyzed && (
-                <div ref={jdResultsRef} className="job-results">
-                  <JobEditor jd={jd} onChange={setJd} />
-                  <Actions
-                    back={() => setStep('resume')}
-                    next={() => setStep('tailor')}
-                    label="Review and tailor"
+            )}
+            {step === 'result' && tailored && (
+              <>
+                <div className="result-intro">
+                  <span className="success-dot">
+                    <CheckIcon width={14} height={14} />
+                  </span>
+                  <p>Your tailored draft is ready. Review it as carefully as the original.</p>
+                </div>
+                <LengthIndicator tailored={tailored} original={resume} />
+                <WhatChanged changes={changedSections(resume, tailored)} />
+                <div className="comparison">
+                  <Document resume={resume} />
+                  <Document
+                    resume={tailored}
+                    editable
+                    onChange={setTailored}
+                    mark={changedSections(resume, tailored)}
                   />
                 </div>
-              )}
-            </>
-          )}
-          {step === 'tailor' && (
-            <section className="tailor-panel">
-              <span className="eyebrow">Ready to run</span>
-              <h3>{jd.title || 'This application'}</h3>
-              <p>
-                Retailor will use your reviewed resume and reviewed requirements. It will not invent
-                experience or qualifications.
-              </p>
-              <div className="tailor-summary">
-                <span>
-                  <strong>{resume.name || 'Your resume'}</strong> reviewed
-                </span>
-                <span>
-                  <strong>{jd.requirements.length + jd.responsibilities.length}</strong> role
-                  details
-                </span>
-              </div>
-              <div className="tailor-actions">
-                <Actions
-                  back={() => setStep('job')}
-                  next={() => void runTailor()}
-                  label={busy === 'tailor' ? 'Tailoring…' : 'Start tailoring'}
-                  disabled={busy === 'tailor'}
-                />
-                {busy === 'tailor' && (
-                  <button type="button" className="btn btn--ghost" onClick={cancelRun}>
-                    Cancel
-                  </button>
-                )}
-              </div>
-            </section>
-          )}
-          {step === 'result' && tailored && (
-            <>
-              <div className="result-intro">
-                <span className="success-dot">
-                  <CheckIcon width={14} height={14} />
-                </span>
-                <p>Your tailored draft is ready. Review it as carefully as the original.</p>
-              </div>
-              <LengthIndicator tailored={tailored} original={resume} />
-              <WhatChanged changes={changedSections(resume, tailored)} />
-              <div className="comparison">
-                <Document resume={resume} />
-                <Document resume={tailored} editable onChange={setTailored} mark={changedSections(resume, tailored)} />
-              </div>
-              <div className="download-bar">
-                <div>
-                  <strong>Keep the final review yours.</strong>
-                  <span>Make edits above, then choose a format and download.</span>
-                </div>
-                <div className="download-menu" ref={downloadMenuRef}>
-                  <button
-                    className="btn btn--primary"
-                    type="button"
-                    aria-haspopup="menu"
-                    aria-expanded={menuOpen}
-                    disabled={busy === 'tailor'}
-                    onClick={() => setMenuOpen(open => !open)}
-                  >
-                    {busy === 'tailor'
-                      ? `Generating ${exportFormat.toUpperCase()}…`
-                      : downloadFormat
-                        ? `Download ${downloadFormat.toUpperCase()}`
-                        : 'Download'}
-                    {busy === 'tailor' ? (
-                      <DownloadIcon width={16} height={16} />
-                    ) : (
-                      <ChevronDownIcon width={15} height={15} />
-                    )}
-                  </button>
-                  {busy === 'tailor' && (
-                    <button type="button" className="btn btn--ghost" onClick={cancelRun}>
-                      Cancel
+                <div className="download-bar">
+                  <div>
+                    <strong>Keep the final review yours.</strong>
+                    <span>Make edits above, then choose a format and download.</span>
+                  </div>
+                  <div className="download-menu" ref={downloadMenuRef}>
+                    <button
+                      className="btn btn--primary"
+                      type="button"
+                      aria-haspopup="menu"
+                      aria-expanded={menuOpen}
+                      disabled={busy === 'tailor'}
+                      onClick={() => setMenuOpen(open => !open)}
+                    >
+                      {busy === 'tailor'
+                        ? `Generating ${exportFormat.toUpperCase()}…`
+                        : downloadFormat
+                          ? `Download ${downloadFormat.toUpperCase()}`
+                          : 'Download'}
+                      {busy === 'tailor' ? (
+                        <DownloadIcon width={16} height={16} />
+                      ) : (
+                        <ChevronDownIcon width={15} height={15} />
+                      )}
                     </button>
-                  )}
-                  {menuOpen && (
-                    <div className="download-menu__list" role="menu" aria-label="Download format">
-                      {(['docx', 'pdf'] as const).map((format, i) => (
-                        <button
-                          key={format}
-                          type="button"
-                          role="menuitem"
-                          ref={el => {
-                            downloadMenuItems.current[i] = el
-                          }}
-                          onClick={() => chooseFormat(format)}
-                          onKeyDown={e => onMenuKeyDown(e, i)}
-                        >
-                          {format.toUpperCase()}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                    {busy === 'tailor' && (
+                      <button type="button" className="btn btn--ghost" onClick={cancelRun}>
+                        Cancel
+                      </button>
+                    )}
+                    {menuOpen && (
+                      <div className="download-menu__list" role="menu" aria-label="Download format">
+                        {(['docx', 'pdf'] as const).map((format, i) => (
+                          <button
+                            key={format}
+                            type="button"
+                            role="menuitem"
+                            ref={el => {
+                              downloadMenuItems.current[i] = el
+                            }}
+                            onClick={() => chooseFormat(format)}
+                            onKeyDown={e => onMenuKeyDown(e, i)}
+                          >
+                            {format.toUpperCase()}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <button className="btn btn--ghost" type="button" onClick={resetAll}>
+                    Start another application
+                  </button>
                 </div>
-                <button
-                  className="btn btn--ghost"
-                  type="button"
-                  onClick={() => {
-                    setStep('upload')
-                    setFileName(null)
-                    setResume(emptyResume())
-                    setJd(emptyJd())
-                    setJdAnalyzed(false)
-                    setJdText('')
-                    setTailored(null)
-                    setDownloadUrl('')
-                    setExportFormat('docx')
-                    setDownloadFormat(null)
-                    clearError()
-                    setBusy(null)
-                    if (inputRef.current) inputRef.current.value = ''
-                    try {
-                      sessionStorage.removeItem('retailor.workflow')
-                    } catch {
-                      /* storage may be unavailable */
-                    }
-                  }}
-                >
-                  Start another application
-                </button>
-              </div>
-            </>
-          )}
-          {step !== 'upload' && step !== 'result' && (
-            <p className="session-note">
-              Edits are kept while you move between steps. Nothing is submitted until you choose an
-              action.
-            </p>
-          )}
+              </>
+            )}
+            {step !== 'upload' && step !== 'result' && (
+              <p className="session-note">
+                Edits are kept while you move between steps. Nothing is submitted until you choose
+                an action.
+              </p>
+            )}
           </div>
         </main>
       </div>
+      <SiteFooter mobileOnly />
     </div>
   )
 }

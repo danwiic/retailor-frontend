@@ -43,11 +43,8 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="en"
-      className={`${inter.variable} ${spaceGrotesk.variable} h-full antialiased`}
-    >
-      <body className="min-h-full">{children}</body>
+    <html lang="en" className={`${inter.variable} ${spaceGrotesk.variable} antialiased`}>
+      <body>{children}</body>
     </html>
   );
 }
