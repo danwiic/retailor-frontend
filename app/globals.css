@@ -1051,10 +1051,31 @@ a {
 }
 
 .dropzone--busy {
-  animation: none;
   cursor: default;
-  border-color: #cbd5df;
-  background: #f4f7fa;
+  border-color: #d8dee6;
+  background: #fafcfd;
+}
+
+.dropzone--busy__bars {
+  display: grid;
+  gap: 8px;
+  width: min(80%, 320px);
+}
+
+.dropzone--busy__bars i {
+  height: 10px;
+  border-radius: 999px;
+  background: linear-gradient(100deg, #e3e9f0 30%, #f2f6fa 50%, #e3e9f0 70%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+.dropzone--busy__bars i:nth-child(2) {
+  width: 84%;
+}
+
+.dropzone--busy__bars i:nth-child(3) {
+  width: 58%;
 }
 
 .dropzone--busy .btn {
@@ -1063,7 +1084,7 @@ a {
 
 @media (prefers-reduced-motion: no-preference) {
   .dropzone--large:not(:disabled):not(.dropzone--busy) {
-    animation: dropzone-pulse 2.2s ease-in-out infinite;
+    animation: dropzone-pulse 3s ease-in-out infinite;
   }
 }
 
@@ -1075,9 +1096,9 @@ a {
     box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
   }
   50% {
-    border-color: #3b82f6;
-    background: #eff6ff;
-    box-shadow: 0 0 0 16px rgba(59, 130, 246, 0.16);
+    border-color: rgba(59, 130, 246, 0.4);
+    background: #f5f9ff;
+    box-shadow: 0 0 0 8px rgba(59, 130, 246, 0.08);
   }
 }
 

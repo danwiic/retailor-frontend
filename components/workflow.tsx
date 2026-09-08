@@ -1061,12 +1061,12 @@ export function Workflow() {
                   {busy === 'parse' ? (
                     <div className="dropzone dropzone--large dropzone--busy" aria-busy="true">
                       <strong>Reading your resume…</strong>
-                      <span>This can take a few seconds while the structure is extracted.</span>
-                      <button
-                        type="button"
-                        className="btn btn--ghost"
-                        onClick={cancelRun}
-                      >
+                      <span className="dropzone--busy__bars" aria-hidden>
+                        <i />
+                        <i />
+                        <i />
+                      </span>
+                      <button type="button" className="btn btn--ghost" onClick={cancelRun}>
                         Cancel reading
                       </button>
                     </div>
