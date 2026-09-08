@@ -1,7 +1,13 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { analyzeJd, asResult, parseResume, tailor } from '@/lib/api'
+import {
+  analyzeJd,
+  asResult,
+  parseResume,
+  tailor,
+  type ExportFormat,
+} from '@/lib/api'
 import {
   emptyJd,
   emptyResume,
@@ -11,7 +17,15 @@ import {
   type Resume,
   type ResumeSection,
 } from '@/lib/types'
-import { ArrowRightIcon, CheckIcon, DownloadIcon, FileIcon, RefreshIcon, UploadIcon } from './icons'
+import {
+  ArrowRightIcon,
+  CheckIcon,
+  ChevronDownIcon,
+  DownloadIcon,
+  FileIcon,
+  RefreshIcon,
+  UploadIcon,
+} from './icons'
 import { Navbar } from './navbar'
 
 type Step = 'upload' | 'resume' | 'job' | 'tailor' | 'result'
@@ -23,14 +37,82 @@ const steps: { id: Step; label: string; note: string }[] = [
   { id: 'result', label: 'Review result', note: 'Edit before download' },
 ]
 
-function apiMessage(status: number, detail: string) {
-  if (status === 429)
-    return 'The daily limit for this browser has been reached. Try again tomorrow or use a different device.'
+type ErrorKind = 'invalid' | 'file' | 'rate' | 'provider' | 'network'
+
+interface FlowError {
+  kind: ErrorKind
+  title: string
+  detail: string
+}
+
+function toFlowError(status: number, detail: string): FlowError {
   if (status === 413)
-    return 'That file or request is too large. Keep resumes under 5 MB and job descriptions under 6,000 characters.'
+    return {
+      kind: 'file',
+      title: 'Too large for Retailor',
+      detail: 'Resumes stay under 5 MB and job descriptions under 6,000 characters.',
+    }
+  if (status === 429)
+    return {
+      kind: 'rate',
+      title: 'Daily limit reached',
+      detail:
+        "You've used today's free runs for this browser. Try again tomorrow or open a different browser.",
+    }
   if (status === 502 || status === 503)
-    return 'The service is temporarily unavailable. Check your connection and try again.'
-  return detail || 'Please check the fields and try again.'
+    return {
+      kind: 'provider',
+      title: 'Retailor is busy right now',
+      detail: 'The service did not finish. Wait a moment and try again — your progress is saved here.',
+    }
+  return {
+    kind: 'invalid',
+    title: "That didn't go through",
+    detail: detail || 'Review the highlighted field and try again.',
+  }
+}
+
+const NETWORK_ERROR: FlowError = {
+  kind: 'network',
+  title: "Can't reach Retailor",
+  detail: 'Check your connection and try again. Your progress is saved here.',
+}
+
+function ErrorBanner({
+  error,
+  onRetry,
+  onDismiss,
+}: {
+  error: FlowError
+  onRetry?: () => void
+  onDismiss?: () => void
+}) {
+  return (
+    <div className={`error-banner error-banner--${error.kind}`} role="alert">
+      <RefreshIcon width={16} height={16} aria-hidden />
+      <div className="error-banner__copy">
+        <p className="error-banner__title">{error.title}</p>
+        <p className="error-banner__detail">{error.detail}</p>
+      </div>
+      <div className="error-banner__actions">
+        {onRetry && (
+          <button type="button" className="btn btn--ghost error-banner__retry" onClick={onRetry}>
+            <RefreshIcon width={13} height={13} /> Try again
+          </button>
+        )}
+        {onDismiss && (
+          <button
+            type="button"
+            className="error-banner__dismiss"
+            aria-label="Dismiss error"
+            onClick={onDismiss}
+          >
+            ×
+          </button>
+        )}
+      </div>
+    </div>
+  )
 }
 
 function Field({
@@ -86,6 +168,7 @@ function ListField({
         <div className="list-row" key={`${label}-${index}`}>
           <input
             className="input"
+            aria-label={`${label} ${index + 1}`}
             placeholder={placeholder}
             value={value}
             onChange={e => onChange(values.map((item, i) => (i === index ? e.target.value : item)))}
@@ -302,15 +385,61 @@ function JobEditor({
   )
 }
 
+const CHANGE_LABELS: Record<string, string> = {
+  name: 'Name',
+  contact: 'Contact',
+  summary: 'Summary',
+  skills: 'Skills',
+  experience: 'Experience',
+  projects: 'Projects',
+  education: 'Education',
+}
+
+function changedSections(original: Resume, tailored: Resume): string[] {
+  const changed: string[] = []
+  if (original.name !== tailored.name) changed.push('name')
+  if (original.contact.map(c => c.value).join('|') !== tailored.contact.map(c => c.value).join('|'))
+    changed.push('contact')
+  if (original.summary !== tailored.summary) changed.push('summary')
+  if (original.skills.join('\n') !== tailored.skills.join('\n')) changed.push('skills')
+  const entriesDiffer = (a: ResumeSection[], b: ResumeSection[]) =>
+    JSON.stringify(a) !== JSON.stringify(b)
+  if (entriesDiffer(original.experience, tailored.experience)) changed.push('experience')
+  if (entriesDiffer(original.projects, tailored.projects)) changed.push('projects')
+  if (entriesDiffer(original.education, tailored.education)) changed.push('education')
+  return changed
+}
+
+function WhatChanged({ changes }: { changes: string[] }) {
+  if (changes.length === 0) return null
+  return (
+    <div className="what-changed">
+      <strong>What changed</strong>
+      <div className="what-changed__chips">
+        {changes.map(key => (
+          <span key={key}>{CHANGE_LABELS[key]}</span>
+        ))}
+      </div>
+      <p>
+        Retailor reworded these sections against the job details. Review them as carefully as the
+        original.
+      </p>
+    </div>
+  )
+}
+
 function Document({
   resume,
   editable = false,
   onChange,
+  mark = [],
 }: {
   resume: Resume
   editable?: boolean
   onChange?: (resume: Resume) => void
+  mark?: string[]
 }) {
+  const marked = (key: string) => editable && mark.includes(key)
   return (
     <article className="document">
       <div className="document__head">
@@ -318,8 +447,11 @@ function Document({
         <strong>{resume.name || 'Untitled resume'}</strong>
         <span>{resume.contact.map(c => c.value).join(' · ')}</span>
       </div>
-      <div className="document__section">
-        <h3>Summary</h3>
+      <div className={`document__section ${marked('summary') ? 'document__section--changed' : ''}`}>
+        <h3>
+          Summary
+          {marked('summary') && <span className="doc-chip">Changed</span>}
+        </h3>
         {editable ? (
           <textarea
             className="document-input"
@@ -330,8 +462,11 @@ function Document({
           <p>{resume.summary || 'No summary provided.'}</p>
         )}
       </div>
-      <div className="document__section">
-        <h3>Experience</h3>
+      <div className={`document__section ${marked('experience') ? 'document__section--changed' : ''}`}>
+        <h3>
+          Experience
+          {marked('experience') && <span className="doc-chip">Changed</span>}
+        </h3>
         {resume.experience.map((item, i) => (
           <div className="document__entry" key={i}>
             <strong>{String(item.title ?? 'Role')}</strong>
@@ -346,8 +481,11 @@ function Document({
           </div>
         ))}
       </div>
-      <div className="document__section">
-        <h3>Skills</h3>
+      <div className={`document__section ${marked('skills') ? 'document__section--changed' : ''}`}>
+        <h3>
+          Skills
+          {marked('skills') && <span className="doc-chip">Changed</span>}
+        </h3>
         {editable ? (
           <input
             className="document-input"
@@ -428,19 +566,79 @@ function LengthIndicator({ tailored, original }: { tailored: Resume; original: R
 
 export function Workflow() {
   const [step, setStep] = useState<Step>('upload')
-  const [file, setFile] = useState<File | null>(null)
   const [resume, setResume] = useState(emptyResume())
   const [jdText, setJdText] = useState('')
   const [jd, setJd] = useState(emptyJd())
   const [tailored, setTailored] = useState<Resume | null>(null)
   const [downloadUrl, setDownloadUrl] = useState('')
+  const [exportFormat, setExportFormat] = useState<ExportFormat>('docx')
+  const [downloadFormat, setDownloadFormat] = useState<ExportFormat | null>(null)
+  const [fileName, setFileName] = useState<string | null>(null)
   const [busy, setBusy] = useState<string | null>(null)
-  const [error, setError] = useState('')
+  const [error, setError] = useState<FlowError | null>(null)
+  const [canRetry, setCanRetry] = useState(false)
   const [hydrated, setHydrated] = useState(false)
   const [jdAnalyzed, setJdAnalyzed] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const jdResultsRef = useRef<HTMLDivElement>(null)
+  const abortRef = useRef<AbortController | null>(null)
+  const retryRef = useRef<(() => void) | null>(null)
+  const lastFileRef = useRef<File | null>(null)
+  const mainHeadingRef = useRef<HTMLHeadingElement>(null)
+  const downloadMenuRef = useRef<HTMLDivElement>(null)
+  const downloadMenuItems = useRef<Array<HTMLButtonElement | null>>([])
+  const pendingDownloadRef = useRef<ExportFormat | null>(null)
+  const prevStep = useRef<Step>('upload')
   const restored = useRef(false)
+  function fail(err: FlowError, retry?: () => void) {
+    retryRef.current = retry ?? null
+    setCanRetry(Boolean(retry))
+    setError(err)
+  }
+  function clearError() {
+    retryRef.current = null
+    setCanRetry(false)
+    setError(null)
+  }
+  function cancelRun() {
+    abortRef.current?.abort()
+    abortRef.current = null
+    pendingDownloadRef.current = null
+    setBusy(null)
+  }
+  function openDownload(url: string, format: ExportFormat) {
+    const a = document.createElement('a')
+    a.href = url
+    a.rel = 'noreferrer'
+    a.download = `retailor-resume.${format}`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+  }
+  function chooseFormat(fmt: ExportFormat) {
+    setMenuOpen(false)
+    if (busy) return
+    if (fmt === downloadFormat && downloadUrl) {
+      openDownload(downloadUrl, fmt)
+      return
+    }
+    pendingDownloadRef.current = fmt
+    setExportFormat(fmt)
+    void runTailor(fmt)
+  }
+  function onMenuKeyDown(e: React.KeyboardEvent, index: number) {
+    const items = downloadMenuItems.current
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault()
+      const direction = e.key === 'ArrowDown' ? 1 : -1
+      const next = (index + direction + items.length) % items.length
+      items[next]?.focus()
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      chooseFormat(index === 0 ? 'docx' : 'pdf')
+    }
+  }
   useEffect(() => {
     const restore = window.setTimeout(() => {
       try {
@@ -452,6 +650,11 @@ export function Workflow() {
           setJd(normalizeJd(saved.jd))
           setJdAnalyzed(Boolean(saved.jdAnalyzed))
           setJdText(saved.jdText ?? '')
+          setTailored(saved.tailored ? normalizeResume(saved.tailored) : null)
+          setDownloadUrl(typeof saved.downloadUrl === 'string' ? saved.downloadUrl : '')
+          setExportFormat(saved.exportFormat === 'pdf' ? 'pdf' : 'docx')
+          setDownloadFormat(saved.downloadFormat === 'pdf' ? 'pdf' : saved.downloadFormat === 'docx' ? 'docx' : null)
+          setFileName(typeof saved.fileName === 'string' ? saved.fileName : null)
         }
       } catch {
         /* optional session state */
@@ -465,71 +668,165 @@ export function Workflow() {
     return () => window.clearTimeout(ready)
   }, [])
   useEffect(() => {
+    const clear = window.setTimeout(() => setError(null), 0)
+    return () => window.clearTimeout(clear)
+  }, [step])
+  useEffect(() => {
+    if (prevStep.current === step) return
+    prevStep.current = step
+    const focus = window.setTimeout(() => {
+      mainHeadingRef.current?.focus({ preventScroll: true })
+    }, 0)
+    return () => window.clearTimeout(focus)
+  }, [step])
+  useEffect(() => {
     if (!restored.current) return
     try {
-      sessionStorage.setItem('retailor.workflow', JSON.stringify({ step, resume, jd, jdAnalyzed, jdText }))
+      sessionStorage.setItem(
+        'retailor.workflow',
+        JSON.stringify({
+          step,
+          resume,
+          jd,
+          jdAnalyzed,
+          jdText,
+          tailored,
+          downloadUrl,
+          exportFormat,
+          downloadFormat,
+          fileName,
+        })
+      )
     } catch {
       /* storage may be unavailable */
     }
-  }, [step, resume, jd, jdText])
+  }, [step, resume, jd, jdAnalyzed, jdText, tailored, downloadUrl, exportFormat, downloadFormat, fileName])
+  useEffect(() => {
+    if (!menuOpen) return
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (!downloadMenuRef.current?.contains(event.target as Node)) setMenuOpen(false)
+    }
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMenuOpen(false)
+    }
+    document.addEventListener('pointerdown', closeOnOutsideClick)
+    document.addEventListener('keydown', closeOnEscape)
+    const focusIndex = exportFormat === 'pdf' ? 1 : 0
+    const focusTimer = window.setTimeout(() => downloadMenuItems.current[focusIndex]?.focus(), 0)
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick)
+      document.removeEventListener('keydown', closeOnEscape)
+      window.clearTimeout(focusTimer)
+    }
+  }, [menuOpen, exportFormat])
   async function upload(nextFile: File) {
     if (busy) return
-    setError('')
-    if (!/\.(pdf|docx?)$/i.test(nextFile.name) || nextFile.size > 5 * 1024 * 1024) {
-      setError('Choose a PDF or DOCX file under 5 MB.')
+    clearError()
+    if (!/\.(pdf|docx)$/i.test(nextFile.name) || nextFile.size > 5 * 1024 * 1024) {
+      fail({
+        kind: 'file',
+        title: 'Choose a different file',
+        detail: 'Retailor reads PDF and DOCX resumes up to 5 MB.',
+      })
       return
     }
-    setFile(nextFile)
+    const ctrl = new AbortController()
+    abortRef.current = ctrl
+    lastFileRef.current = nextFile
+    setFileName(nextFile.name)
     setBusy('parse')
     try {
-      const response = await parseResume(nextFile)
+      const response = await parseResume(nextFile, { signal: ctrl.signal })
       const result = asResult(response.data, response.status, "We couldn't read that resume.")
       if (!result.ok) {
-        setError(apiMessage(response.status, result.detail))
+        fail(toFlowError(response.status, result.detail))
         return
       }
       setResume(normalizeResume(result.value))
       setStep('resume')
     } catch {
-      setError("We couldn't reach the resume reader. Check your connection and try again.")
+      if (ctrl.signal.aborted) return
+      fail(NETWORK_ERROR, () => {
+        const retryFile = lastFileRef.current
+        if (retryFile) void upload(retryFile)
+      })
     } finally {
+      if (abortRef.current === ctrl) abortRef.current = null
       setBusy(null)
     }
   }
   async function analyze() {
-    setError('')
+    if (busy) return
+    clearError()
     if (jdText.trim().length < 1 || jdText.length > 6000) {
-      setError('Add a job description between 1 and 6,000 characters.')
+      fail({
+        kind: 'invalid',
+        title: 'Add the posting first',
+        detail: 'Paste the job description — between 1 and 6,000 characters.',
+      })
       return
     }
+    const ctrl = new AbortController()
+    abortRef.current = ctrl
     setBusy('analyze')
-    const response = await analyzeJd(jdText)
-    const result = asResult(response.data, response.status, "We couldn't analyze that posting.")
-    setBusy(null)
-    if (!result.ok) {
-      setError(apiMessage(response.status, result.detail))
-      return
+    try {
+      const response = await analyzeJd(jdText, { signal: ctrl.signal })
+      const result = asResult(response.data, response.status, "We couldn't analyze that posting.")
+      if (!result.ok) {
+        fail(toFlowError(response.status, result.detail))
+        return
+      }
+      setJd(normalizeJd(result.value))
+      setJdAnalyzed(true)
+      window.setTimeout(() => {
+        jdResultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 0)
+    } catch {
+      if (ctrl.signal.aborted) return
+      fail(NETWORK_ERROR, () => void analyze())
+    } finally {
+      if (abortRef.current === ctrl) abortRef.current = null
+      setBusy(null)
     }
-    setJd(normalizeJd(result.value))
-    setJdAnalyzed(true)
-    window.setTimeout(() => {
-      jdResultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    }, 0)
   }
-  async function runTailor() {
-    setError('')
+  async function runTailor(format: ExportFormat = exportFormat) {
+    if (busy) return
+    clearError()
+    const ctrl = new AbortController()
+    abortRef.current = ctrl
     setBusy('tailor')
-    const response = await tailor(resume, jd)
-    const result = asResult(response.data, response.status, 'Tailoring did not finish.')
-    setBusy(null)
-    if (!result.ok) {
-      setError(apiMessage(response.status, result.detail))
-      return
+    try {
+      const response = await tailor(resume, jd, format, { signal: ctrl.signal })
+      const result = asResult(response.data, response.status, 'Tailoring did not finish.')
+      if (!result.ok) {
+        fail(toFlowError(response.status, result.detail))
+        return
+      }
+      const value = result.value as {
+        tailored_resume?: unknown
+        download_url?: string
+        download_format?: string
+      }
+      setTailored(normalizeResume(value.tailored_resume))
+      setDownloadUrl(typeof value.download_url === 'string' ? value.download_url : '')
+      setDownloadFormat(value.download_format === 'pdf' ? 'pdf' : 'docx')
+      setExportFormat(format)
+      setStep('result')
+      const generatedUrl =
+        typeof value.download_url === 'string' ? value.download_url : ''
+      if (pendingDownloadRef.current === format && generatedUrl) {
+        pendingDownloadRef.current = null
+        openDownload(generatedUrl, format)
+      }
+    } catch {
+      if (ctrl.signal.aborted) return
+      pendingDownloadRef.current = null
+      fail(NETWORK_ERROR, () => void runTailor(format))
+    } finally {
+      if (abortRef.current === ctrl) abortRef.current = null
+      pendingDownloadRef.current = null
+      setBusy(null)
     }
-    const value = result.value as { tailored_resume?: unknown; download_url?: string }
-    setTailored(normalizeResume(value.tailored_resume))
-    setDownloadUrl(typeof value.download_url === 'string' ? value.download_url : '')
-    setStep('result')
   }
   const index = steps.findIndex(item => item.id === step)
   const title =
@@ -587,20 +884,35 @@ export function Workflow() {
           <div className="main-header">
             <div>
               <span className="eyebrow">{steps[index].label}</span>
-              <h2>{title}</h2>
+              <h2 ref={mainHeadingRef} tabIndex={-1}>
+                {title}
+              </h2>
             </div>
-            {file && (
+            {fileName && (
               <span className="file-crumb">
                 <FileIcon width={15} height={15} />
-                {file.name}
+                {fileName}
               </span>
             )}
           </div>
+          <p className="sr-only" aria-live="polite">
+            {busy === 'parse'
+              ? 'Reading your resume.'
+              : busy === 'analyze'
+                ? 'Analyzing the job description.'
+                : busy === 'tailor'
+                  ? 'Tailoring your resume.'
+                  : step === 'result' && tailored
+                    ? 'Your tailored draft is ready. Review the changes before downloading.'
+                    : ''}
+          </p>
+          <div aria-busy={busy !== null}>
           {error && (
-            <div className="error-banner" role="alert">
-              <RefreshIcon width={16} height={16} />
-              <span>{error}</span>
-            </div>
+            <ErrorBanner
+              error={error}
+              onRetry={canRetry ? () => retryRef.current?.() : undefined}
+              onDismiss={clearError}
+            />
           )}
           {step === 'upload' && (
             <section className="upload-panel">
@@ -648,6 +960,11 @@ export function Workflow() {
                 </strong>
                 <span>PDF or DOCX · 5 MB maximum</span>
               </button>
+              {busy === 'parse' && (
+                <button type="button" className="btn btn--quiet" onClick={cancelRun}>
+                  Cancel reading
+                </button>
+              )}
               <p className="privacy-inline">
                 You will review every extracted field before it is used.
               </p>
@@ -673,15 +990,22 @@ export function Workflow() {
                   onChange={setJdText}
                   hint={`${jdText.length.toLocaleString()} / 6,000 characters`}
                 />
-                <button
-                  className="btn btn--primary"
-                  type="button"
-                  disabled={busy === 'analyze' || !jdText.trim()}
-                  onClick={() => void analyze()}
-                >
-                  {busy === 'analyze' ? 'Analyzing…' : 'Analyze posting'}
-                  <ArrowRightIcon width={16} height={16} />
-                </button>
+                <div className="job-actions">
+                  <button
+                    className="btn btn--primary"
+                    type="button"
+                    disabled={busy === 'analyze' || !jdText.trim()}
+                    onClick={() => void analyze()}
+                  >
+                    {busy === 'analyze' ? 'Analyzing…' : 'Analyze posting'}
+                    <ArrowRightIcon width={16} height={16} />
+                  </button>
+                  {busy === 'analyze' && (
+                    <button type="button" className="btn btn--ghost" onClick={cancelRun}>
+                      Cancel
+                    </button>
+                  )}
+                </div>
               </section>
               {jdAnalyzed && (
                 <div ref={jdResultsRef} className="job-results">
@@ -712,12 +1036,19 @@ export function Workflow() {
                   details
                 </span>
               </div>
-              <Actions
-                back={() => setStep('job')}
-                next={() => void runTailor()}
-                label={busy === 'tailor' ? 'Tailoring…' : 'Start tailoring'}
-                disabled={busy === 'tailor'}
-              />
+              <div className="tailor-actions">
+                <Actions
+                  back={() => setStep('job')}
+                  next={() => void runTailor()}
+                  label={busy === 'tailor' ? 'Tailoring…' : 'Start tailoring'}
+                  disabled={busy === 'tailor'}
+                />
+                {busy === 'tailor' && (
+                  <button type="button" className="btn btn--ghost" onClick={cancelRun}>
+                    Cancel
+                  </button>
+                )}
+              </div>
             </section>
           )}
           {step === 'result' && tailored && (
@@ -729,39 +1060,75 @@ export function Workflow() {
                 <p>Your tailored draft is ready. Review it as carefully as the original.</p>
               </div>
               <LengthIndicator tailored={tailored} original={resume} />
+              <WhatChanged changes={changedSections(resume, tailored)} />
               <div className="comparison">
                 <Document resume={resume} />
-                <Document resume={tailored} editable onChange={setTailored} />
+                <Document resume={tailored} editable onChange={setTailored} mark={changedSections(resume, tailored)} />
               </div>
               <div className="download-bar">
                 <div>
                   <strong>Keep the final review yours.</strong>
-                  <span>Make edits above, then use the temporary DOCX link.</span>
+                  <span>Make edits above, then choose a format and download.</span>
                 </div>
-                {downloadUrl && (
-                  <a
+                <div className="download-menu" ref={downloadMenuRef}>
+                  <button
                     className="btn btn--primary"
-                    href={downloadUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    download
+                    type="button"
+                    aria-haspopup="menu"
+                    aria-expanded={menuOpen}
+                    disabled={busy === 'tailor'}
+                    onClick={() => setMenuOpen(open => !open)}
                   >
-                    Download DOCX <DownloadIcon width={16} height={16} />
-                  </a>
-                )}
+                    {busy === 'tailor'
+                      ? `Generating ${exportFormat.toUpperCase()}…`
+                      : downloadFormat
+                        ? `Download ${downloadFormat.toUpperCase()}`
+                        : 'Download'}
+                    {busy === 'tailor' ? (
+                      <DownloadIcon width={16} height={16} />
+                    ) : (
+                      <ChevronDownIcon width={15} height={15} />
+                    )}
+                  </button>
+                  {busy === 'tailor' && (
+                    <button type="button" className="btn btn--ghost" onClick={cancelRun}>
+                      Cancel
+                    </button>
+                  )}
+                  {menuOpen && (
+                    <div className="download-menu__list" role="menu" aria-label="Download format">
+                      {(['docx', 'pdf'] as const).map((format, i) => (
+                        <button
+                          key={format}
+                          type="button"
+                          role="menuitem"
+                          ref={el => {
+                            downloadMenuItems.current[i] = el
+                          }}
+                          onClick={() => chooseFormat(format)}
+                          onKeyDown={e => onMenuKeyDown(e, i)}
+                        >
+                          {format.toUpperCase()}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <button
                   className="btn btn--ghost"
                   type="button"
                   onClick={() => {
                     setStep('upload')
-                    setFile(null)
+                    setFileName(null)
                     setResume(emptyResume())
                     setJd(emptyJd())
                     setJdAnalyzed(false)
                     setJdText('')
                     setTailored(null)
                     setDownloadUrl('')
-                    setError('')
+                    setExportFormat('docx')
+                    setDownloadFormat(null)
+                    clearError()
                     setBusy(null)
                     if (inputRef.current) inputRef.current.value = ''
                     try {
@@ -782,6 +1149,7 @@ export function Workflow() {
               action.
             </p>
           )}
+          </div>
         </main>
       </div>
     </div>

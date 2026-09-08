@@ -101,9 +101,12 @@ export async function analyzeJd(
   );
 }
 
+export type ExportFormat = 'docx' | 'pdf'
+
 export async function tailor(
   resume: unknown,
   jd: unknown,
+  exportFormat: ExportFormat = 'docx',
   opts: RequestOptions = {}
 ): Promise<{ data: unknown; status: number }> {
   return request(
@@ -114,7 +117,7 @@ export async function tailor(
         "content-type": "application/json",
         "x-device-id": getDeviceId(),
       },
-      body: JSON.stringify({ resume, jd }),
+      body: JSON.stringify({ resume, jd, export_format: exportFormat }),
     },
     { ...opts, timeoutMs: 150_000 }
   );

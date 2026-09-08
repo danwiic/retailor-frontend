@@ -215,7 +215,7 @@ export function Retailor() {
     setExhausted(false);
     const payloadJd = (jdResult as Record<string, unknown> | null) ?? { text: jd };
     try {
-      const { data, status } = await tailor(parsedResume, payloadJd, {
+      const { data, status } = await tailor(parsedResume, payloadJd, 'docx', {
         signal: ctrl.signal,
       });
       const res: Result<unknown> = asResult(

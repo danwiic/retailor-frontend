@@ -118,3 +118,11 @@ export function RetuneIcon(props: SVGProps<SVGSVGElement>) {
     </svg>
   );
 }
+
+export function ChevronDownIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg {...base(props)} width={props.width ?? 16} height={props.height ?? 16}>
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
