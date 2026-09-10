@@ -30,9 +30,9 @@ export default function Privacy() {
         </LegalSection>
         <LegalSection title="How your content is processed">
           <p>
-            Your resume is uploaded to Retailor&rsquo;s backend for parsing. The resume and the job
-            description are then sent to an external LLM service, through the configured
-            agentrouter.org / Anthropic integration, to extract or tailor content. Do not upload
+            Your resume is uploaded to Retailor's backend for parsing. The resume and the job
+            description are then sent to an external LLM service (GPT-5 mini), through the
+            configured Azure AI Foundry integration, to extract or tailor content. Do not upload
             information you are not comfortable sending to these services.
           </p>
         </LegalSection>

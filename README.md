@@ -109,11 +109,11 @@ account identity.
 
 The frontend exposes these same-origin routes:
 
-| Frontend route | Backend route | Purpose |
-| --- | --- | --- |
-| `POST /api/parse` | `POST /parse` | Parse a PDF or DOCX resume |
+| Frontend route         | Backend route      | Purpose                              |
+| ---------------------- | ------------------ | ------------------------------------ |
+| `POST /api/parse`      | `POST /parse`      | Parse a PDF or DOCX resume           |
 | `POST /api/analyze-jd` | `POST /analyze-jd` | Extract job details and requirements |
-| `POST /api/tailor` | `POST /tailor` | Tailor the reviewed resume and JD |
+| `POST /api/tailor`     | `POST /tailor`     | Tailor the reviewed resume and JD    |
 
 The proxy routes forward the backend response status and return a normalized
 error shape when the upstream service is unavailable.
@@ -173,8 +173,8 @@ Important data-flow details:
 
 - Uploaded resumes are sent to the configured backend for parsing.
 - Resume and job-description content may be sent by the backend to the
-  configured external LLM integration, including the `agentrouter.org` /
-  Anthropic provider path.
+  configured external LLM integration, including the Azure AI Foundry /
+  GPT-5 mini provider path.
 - Generated DOCX exports are stored temporarily, such as in S3-compatible object
   storage, and are accessed through short-lived download URLs.
 - The browser stores only the minimum workflow state needed to preserve the
