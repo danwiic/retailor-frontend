@@ -10,7 +10,10 @@
   },
   "dependencies": {
     "@vercel/analytics": "^2.0.1",
+<<<<<<< HEAD
     "@vercel/speed-insights": "^2.0.0",
+=======
+>>>>>>> 5e94b7c932f7f545aed4b94d6f473205e8cb94ef
     "next": "16.3.4",
     "react": "19.2.8",
     "react-dom": "19.2.8"
